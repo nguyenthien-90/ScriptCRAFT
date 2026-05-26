@@ -53,10 +53,17 @@ export default function ProjectGallery({ onSelectProject, onClose }: ProjectGall
           ) : (
             <div className="grid md:grid-cols-2 gap-4">
               {projects.map((p) => (
-                <button
+                <div
                   key={p.id}
                   onClick={() => onSelectProject(p)}
-                  className="bg-white/[0.02] hover:bg-white/5 border border-white/5 hover:border-white/20 rounded-3xl p-6 text-left transition-all group relative"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      onSelectProject(p);
+                    }
+                  }}
+                  role="button"
+                  tabIndex={0}
+                  className="bg-white/[0.02] hover:bg-white/5 border border-white/5 hover:border-white/20 rounded-3xl p-6 text-left transition-all group relative cursor-pointer outline-none focus:ring-2 focus:ring-orange-500/50"
                 >
                   <div className="flex items-start justify-between mb-4">
                     <div className="p-2 bg-orange-500/10 rounded-xl text-orange-500">
@@ -64,7 +71,7 @@ export default function ProjectGallery({ onSelectProject, onClose }: ProjectGall
                     </div>
                     <button 
                       onClick={(e) => handleDelete(e, p.id)}
-                      className="p-2 text-white/10 hover:text-red-500 transition-colors"
+                      className="p-2 text-white/10 hover:text-red-500 transition-colors cursor-pointer"
                     >
                       <Trash2 size={16} />
                     </button>
@@ -89,7 +96,7 @@ export default function ProjectGallery({ onSelectProject, onClose }: ProjectGall
                       <Globe size={10} /> Trilingual
                     </div>
                   </div>
-                </button>
+                </div>
               ))}
             </div>
           )}

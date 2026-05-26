@@ -1,4 +1,11 @@
-export type Genre = 'Action' | 'Drama' | 'Comedy' | 'Sci-Fi' | 'Horror' | 'Thriller' | 'Romance' | 'Fantasy' | 'Documentary';
+export type Genre = 'Drama' | 'Comedy' | 'Romance' | 'Fantasy' | 'Documentary' | 'Religion' | 'History' | 'Action' | 'Animation';
+
+export interface Character {
+  id: string;
+  name: string;
+  role: string;
+  description: string;
+}
 
 export interface ProjectState {
   id: string;
@@ -13,6 +20,7 @@ export interface ProjectState {
   selectedBranchId: string | null;
   acts: ScriptAct[];
   segments: ScriptSegment[];
+  characters?: Character[];
 }
 
 export interface ClarificationQuestion {
