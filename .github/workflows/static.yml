@@ -2,7 +2,7 @@
 name: Deploy static content to Pages
 
 on:
-  # Chạy tự động mỗi khi bạn push code lên nhánh main
+  # Chạy tự động mỗi khi bạn push code mới lên nhánh main
   push:
     branches: ['main']
 
