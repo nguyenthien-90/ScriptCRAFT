@@ -41,6 +41,8 @@ jobs:
 
       - name: Build
         run: npm run build
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }} # Thêm 3 dòng env này vào dưới step Build
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
