@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { ProjectState, ScriptSegment } from '../types';
-import { generateSegmentDraft, syncTranslations } from '../services/ai';
-import { ArrowLeft, Save, Sparkles, Loader2, ChevronLeft, ChevronRight, FileText, Type as TypeIcon, Edit3, Send, CheckCircle2 } from 'lucide-react';
+import { generateFullScreenplayDraft } from '../services/ai';
+import { ArrowLeft, Save, Sparkles, Loader2, FileText, Type as TypeIcon, Edit3, Send, CheckCircle2, RefreshCw } from 'lucide-react';
 import { saveProjectToStorage } from '../lib/storage';
 
 const estimateDuration = (text: string, lang: 'vi' | 'en' | 'zh'): number => {
@@ -84,18 +84,19 @@ export default function StepEditor({ project, updateProject, onPrev }: StepEdito
   };
 
   const handleDraftContent = async () => {
+    if (!window.confirm("Bạn có chắc chắn muốn AI tự động sáng tác lại toàn bộ kịch bản từ đầu không? Bản biên tập hiện tại của bạn sẽ bị đè mới hoàn toàn.")) {
+      return;
+    }
     setDrafting(true);
     try {
-      const selectedBranch = project.branches.find(b => b.id === project.selectedBranchId);
-      const context = `Story: ${project.initialIdea}. Branch: ${selectedBranch?.description}. Act Structure: ${JSON.stringify(project.acts)}. Current Segment: ${activeSegment.title}. Additional Context: ${project.extraContext}`;
-      const draft = await generateSegmentDraft(activeSegment.title, context, project.characters, project.genre);
+      const contentVi = await generateFullScreenplayDraft(project);
       
       const newSegments = [...segments];
       newSegments[activeSegmentIndex] = { 
         ...activeSegment, 
-        contentVi: draft.vi,
-        contentEn: draft.en,
-        contentZh: draft.zh
+        contentVi: contentVi,
+        contentEn: '',
+        contentZh: ''
       };
       updateProject({ segments: newSegments });
     } catch (error) {
@@ -161,49 +162,80 @@ export default function StepEditor({ project, updateProject, onPrev }: StepEdito
 
   return (
     <div className="flex flex-col lg:flex-row gap-8 h-[calc(100vh-200px)] min-h-[800px]">
-      {/* Sidebar: Navigation */}
-      <aside className="w-full lg:w-72 flex flex-col gap-4 overflow-y-auto pr-2 custom-scrollbar">
-        <div className="flex flex-col gap-2 mb-2">
+      {/* Sidebar: Project Reference & Outline */}
+      <aside className="w-full lg:w-80 flex flex-col gap-4 overflow-y-auto pr-2 custom-scrollbar shrink-0">
+        <div className="flex flex-col gap-2">
           <div className="flex items-center justify-between">
             <div className="flex flex-col">
-              <h3 className="text-sm font-mono uppercase tracking-widest text-white/30 leading-none">Segments</h3>
-              <span className="text-[10px] text-white/10 uppercase font-mono">Phân đoạn</span>
+              <h3 className="text-xs font-mono uppercase tracking-widest text-white/30 leading-none">THÔNG TIN KỊCH BẢN</h3>
+              <span className="text-[10px] text-white/20 uppercase font-mono">Project Reference</span>
             </div>
-            <span className="text-[10px] bg-white/5 px-2 py-1 rounded border border-white/10">{segments.length} total</span>
+            <span className="text-[10px] bg-white/5 px-2 py-0.5 rounded border border-white/10 text-orange-400 font-mono">TIẾNG VIỆT</span>
           </div>
-          <div className="bg-white/[0.02] p-3 rounded-xl border border-white/5 flex flex-col gap-1">
-            <span className="text-[9px] text-white/30 uppercase font-mono">Total Duration / Tổng thời lượng</span>
-            <span className="text-xs font-bold font-mono text-orange-400">
-              ⏱️ {totalDuration}s ({Math.floor(totalDuration / 60)}m {totalDuration % 60}s)
-            </span>
+          
+          <div className="bg-white/[0.02] p-4 rounded-2xl border border-white/5 flex flex-col gap-3">
+            <div>
+              <span className="text-[9px] text-white/30 uppercase font-mono block">Thể loại / Genre</span>
+              <span className="text-xs font-semibold text-white">
+                {project.genre === 'Drama' && 'Phim chính kịch (tâm lý)'}
+                {project.genre === 'Comedy' && 'Phim hài'}
+                {project.genre === 'Romance' && 'Phim lãng mạn'}
+                {project.genre === 'Fantasy' && 'Phim giả tưởng'}
+                {project.genre === 'Documentary' && 'Phim tài liệu'}
+                {project.genre === 'Religion' && 'Phim tôn giáo'}
+                {project.genre === 'History' && 'Phim lịch sử'}
+                {project.genre === 'Action' && 'Phim hành động'}
+                {project.genre === 'Animation' && 'Phim hoạt hình'}
+              </span>
+            </div>
+            
+            <div>
+              <span className="text-[9px] text-white/30 uppercase font-mono block">Thời lượng / Target Duration</span>
+              <span className="text-xs font-mono text-orange-400 font-bold">⏱️ {project.duration} phút</span>
+            </div>
+
+            <div className="pt-2 border-t border-white/5">
+              <span className="text-[9px] text-white/30 uppercase font-mono block mb-1">Cốt truyện chính / Core Concept</span>
+              <p className="text-xs text-white/60 leading-relaxed line-clamp-4 hover:line-clamp-none transition-all cursor-pointer" title={project.initialIdea}>
+                {project.initialIdea}
+              </p>
+            </div>
           </div>
         </div>
-        
-        {segments.map((seg, idx) => {
-          const isActive = idx === activeSegmentIndex;
-          const hasContent = seg.contentVi.trim().length > 0;
-          return (
-            <button
-              key={seg.id}
-              onClick={() => setActiveSegmentIndex(idx)}
-              className={`p-4 rounded-2xl text-left border transition-all relative overflow-hidden group ${
-                isActive
-                  ? 'bg-orange-500 text-black border-transparent shadow-lg shadow-orange-500/20'
-                  : 'bg-white/5 border-white/5 hover:bg-white/10 text-white/60'
-              }`}
-            >
-              <div className="flex items-center justify-between gap-2 relative z-10">
-                <span className="text-xs font-bold truncate">{idx + 1}. {seg.title}</span>
-                {hasContent && !isActive && <div className="w-1.5 h-1.5 rounded-full bg-orange-500" />}
+
+        {/* 3-Act structure reference */}
+        <div className="flex flex-col gap-2 flex-1">
+          <h4 className="text-[10px] font-mono uppercase tracking-widest text-white/30 font-sans">Cấu trúc 3 Hồi / Narrative Reference</h4>
+          <div className="space-y-3">
+            {project.acts.map((act, idx) => (
+              <div key={idx} className="p-3 bg-white/[0.01] border border-white/5 rounded-xl space-y-1 hover:border-white/10 transition-all">
+                <div className="flex items-center gap-2">
+                  <span className="text-[9px] font-mono font-bold bg-orange-500/15 text-orange-400 px-1.5 py-0.5 rounded">
+                    HỒI {idx + 1}
+                  </span>
+                  <span className="text-xs font-bold text-white/80 truncate">{act.title}</span>
+                </div>
+                <p className="text-[10px] text-white/40 leading-relaxed line-clamp-3 hover:line-clamp-none transition-all cursor-pointer" title={act.description}>
+                  {act.description}
+                </p>
               </div>
-              <div className="flex items-center justify-between mt-2 relative z-10">
-                <span className={`text-[10px] ${isActive ? 'text-black/50' : 'text-white/20'}`}>
-                  {isActive ? 'EDITING' : hasContent ? 'DRAFTED' : 'EMPTY'}
-                </span>
-              </div>
-            </button>
-          );
-        })}
+            ))}
+          </div>
+        </div>
+
+        {/* Retake draft action */}
+        <button
+          onClick={handleDraftContent}
+          disabled={drafting}
+          className="w-full py-3 px-4 bg-orange-500/10 hover:bg-orange-500 hover:text-black border border-orange-500/20 text-orange-400 font-bold rounded-2xl flex items-center justify-center gap-2 transition-all group shrink-0 text-xs font-mono"
+        >
+          {drafting ? (
+            <Loader2 className="animate-spin" size={16} />
+          ) : (
+            <RefreshCw size={16} className="group-hover:rotate-180 transition-transform duration-500" />
+          )}
+          SÁNG TÁC LẠI BẰNG AI
+        </button>
       </aside>
 
       {/* Main Canvas: Editor */}
@@ -211,13 +243,7 @@ export default function StepEditor({ project, updateProject, onPrev }: StepEdito
         <header className="p-4 border-b border-white/10 flex flex-wrap items-center justify-between bg-white/[0.02] gap-4">
           <div className="flex items-center gap-6">
             <button 
-              onClick={() => {
-                // We don't have direct access to setShowGallery(true) in App.tsx
-                // but we can pass it down as a prop if we want.
-                // Alternatively, we can use a custom event or let App.tsx handle navigation.
-                // For now, I'll assume we might want to add onShowArchive to the props.
-                onPrev(); // If we go back far enough we see it, but better to have it here.
-              }}
+              onClick={onPrev}
               className="flex items-center gap-2 text-white/30 hover:text-white transition-colors"
             >
               <ArrowLeft size={16} />
@@ -229,9 +255,9 @@ export default function StepEditor({ project, updateProject, onPrev }: StepEdito
                 <FileText size={18} />
               </div>
               <div>
-                <h4 className="text-sm font-bold">{activeSegment.title}</h4>
-                <p className="text-[10px] text-white/30 truncate max-w-[150px]">
-                  {project.acts.find(act => act.plotPoints.some(pp => pp.id === activeSegment.plotPointId))?.title}
+                <h4 className="text-sm font-bold truncate max-w-[200px] sm:max-w-xs">{project.title || 'Kịch bản gốc'}</h4>
+                <p className="text-[10px] text-white/30">
+                  Biên tập kịch bản hoàn chỉnh (Từ đầu đến cuối)
                 </p>
               </div>
             </div>
@@ -255,24 +281,6 @@ export default function StepEditor({ project, updateProject, onPrev }: StepEdito
               )}
               <span className="text-[10px] font-bold uppercase">{saveStatus === 'saved' ? 'Đã lưu kịch bản' : 'Lưu bản thảo'}</span>
             </button>
-
-            <div className="h-6 w-[1px] bg-white/10 mx-1 hidden sm:block" />
-            <div className="flex gap-1">
-              <button
-                disabled={activeSegmentIndex === 0}
-                onClick={() => setActiveSegmentIndex(s => s - 1)}
-                className="p-2 hover:bg-white/10 rounded-xl disabled:opacity-20 transition-all"
-              >
-                <ChevronLeft size={18} />
-              </button>
-              <button
-                disabled={activeSegmentIndex === segments.length - 1}
-                onClick={() => setActiveSegmentIndex(s => s + 1)}
-                className="p-2 hover:bg-white/10 rounded-xl disabled:opacity-20 transition-all"
-              >
-                <ChevronRight size={18} />
-              </button>
-            </div>
           </div>
         </header>
 
@@ -397,17 +405,15 @@ export default function StepEditor({ project, updateProject, onPrev }: StepEdito
           </div>
           <div className="flex items-center gap-4">
             <button 
-              onClick={() => {
-                const fullScript = segments.map(s => {
-                  return `
-============================================================
-PHÂN ĐOẠN: ${s.title}
+            onClick={() => {
+                const fullScript = `============================================================
+TAC PHAM: ${(project.title || 'CHUA CO TEN').toUpperCase()}
+THE LOAI: ${(project.genre || '').toUpperCase()} | THOI LUONG: ${project.duration} PHUT
 ============================================================
 
-${s.contentVi}
+${currentContent}
 `;
-                }).join('\n\n');
-                const blob = new Blob([fullScript], { type: 'text/plain' });
+                const blob = new Blob([fullScript], { type: 'text/plain;charset=utf-8' });
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement('a');
                 a.href = url;

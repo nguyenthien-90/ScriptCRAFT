@@ -1,27 +1,33 @@
 import { GoogleGenAI, Type } from "@google/genai";
-import { Genre, ClarificationQuestion, StoryBranch, ScriptAct, Character } from "../types";
+import { Genre, ClarificationQuestion, StoryBranch, ScriptAct, Character, ProjectState } from "../types";
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
 export async function generateClarificationQuestions(genre: Genre, idea: string, duration: number, extraContext?: string): Promise<ClarificationQuestion[]> {
   const response = await ai.models.generateContent({
     model: "gemini-3-flash-preview",
-    contents: `You are a professional script consultant. Based on this idea for a ${duration} minute ${genre} film, generate 3-4 specific clarification questions in Vietnamese to help refine the plot. Each question should have 3 distinct options for the user to choose from.
-    Idea: ${idea}
-    Additional Context: ${extraContext || "None"}
+    contents: `Bạn là một chuyên gia cố vấn và biên kịch phim điện ảnh kỳ cựu. Hãy phân tích kỹ lưỡng Thể loại phim "${genre}", Tóm tắt ý tưởng kịch bản chính: "${idea}" cùng bất kỳ tài liệu nào được đệ trình thêm như sau:
+    TÀI LIỆU ĐÍNH KÈM / TƯ LIỆU SÁNG TÁC GỐC ĐẦU VÀO:
+    "${extraContext || "Không có"}"
+
+    Nhiệm vụ: Hãy thiết lập danh sách các câu hỏi làm rõ chi tiết (Clarification Questions) bằng Tiếng Việt.
     
-    CRITICAL: The questions and options must be highly specific to and representative of the chosen film genre: "${genre}".
-    For example:
-    - If Comedy: Include choices that raise hilarious stakes or comic misunderstandings.
-    - If Religion: Focus on moral conflict, faith questioning, or spiritual crises.
-    - If History: Focus on historical fidelity, era settings, customs of the time.
-    - If Action: Focus on high stakes, combat styles, core physical threats or chases.
-    - If Animation: Focus on visual magic rules, talking objects, fantasy logic, stylized/imaginative settings, and playful tone.
-    - If Drama: Deepen emotional or psychological mâu thuẫn, realistic struggles.
-    - If Romance: Focus on the chemistry, obstacles between lovers, and sentimental vibes.
+    YÊU CẦU QUAN TRỌNG VỀ SỐ LƯỢNG CÂU HỎI (TỪ 4 ĐẾN 10 CÂU HỎI):
+    - Số lượng câu hỏi phải được quyết định linh hoạt tùy theo độ dày và độ đồ sộ từ thông tin "Tài liệu đính kèm" và "Ý tưởng chính":
+      + Nếu Tài liệu đính kèm và ý tưởng ban đầu chứa rất nhiều chi tiết, sự kiện, thông điệp hoặc có nhiều nút thắt cần mổ xẻ sâu sắc, hãy đặt một danh sách câu hỏi cực kỳ phong phú và tỉ mỉ từ 6 đến 10 câu hỏi (tối đa 10) để giải đáp đầy đủ ngõ ngách kịch tính.
+      + Nếu thông tin còn ở mức độ cơ bản hoặc ngắn, hãy tạo tối thiểu 4 câu hỏi chất lượng.
     
-    IMPORTANT: Return the questions and options in Vietnamese (Tiếng Việt).
-    Return the result in JSON format.`,
+    YÊU CẦU NỘI DUNG VỚI MỖI CÂU HỎI:
+    - Mỗi câu hỏi phải thực sự cụ thể, đi thẳng vào các mắt xích kịch tính, cách xử lý bối cảnh hoặc cách liên kết các chất liệu thô của phim.
+    - Cung cấp chính xác 3 phương án trả lời trắc nghiệm (options) cực kỳ sáng tạo, bất ngờ và kích thích tư duy thiết kế, mang đậm đặc trưng rõ rệt của Thể loại phim "${genre}":
+      + Phim tôn giáo ("Religion"): Liên quan đến sự quy phục tín ngưỡng, đấu tranh đức tin tôn giáo, tính thiện ác nội tâm, sự trả giá hoặc bí mật thiêng liêng.
+      + Phim lịch sử ("History"): Xoay quanh biến cố thời cuộc, thời đại bối cảnh thực tại xưa cổ, phong thái lễ nghi triều đại, hào khí hoặc sự hy sinh vì dòng tộc, bờ cõi nước nhà.
+      + Phim hoạt hình ("Animation"): Sáng tạo bay bổng, phép thuật nhiệm màu, thế giới kỳ vĩ, quy luật thần tiên lý thú, nhân cách hóa sống động, vui tươi dí dỏm.
+      + Phim hành động ("Action"): Nút thắt sống còn kẻ thù giấu mặt, vũ khí, các pha rượt đuổi nghẹt thở, ranh giới sinh tử, mâu thuẫn báo thù hoặc bảo vệ chính nghĩa.
+      + Phim hài ("Comedy"): Tréo ngoe dở khóc dở cười, hiểu lầm tai hại, tình huống oái oăm tạo tiếng cười sảng khoái và tự nhiên.
+      + Phim lãng mạn ("Romance") / Chính kịch ("Drama"): Những dằn vặt sâu trong thâm tâm, bức tường ngăn cản tình cảm đôi lứa, mâu thuẫn lý trí cá nhân bền bỉ.
+
+    Hãy trả về mảng kết quả JSON bằng Tiếng Việt theo schema có sẵn cực kỳ chính xác.`,
     config: {
       responseMimeType: "application/json",
       responseSchema: {
@@ -88,17 +94,19 @@ export async function generateStoryBranches(genre: Genre, idea: string, answers:
 export async function generateScriptStructure(genre: Genre, idea: string, selectedBranch: StoryBranch): Promise<ScriptAct[]> {
   const response = await ai.models.generateContent({
     model: "gemini-3-flash-preview",
-    contents: `Divide the following story direction into a standard 3-act structure with exactly 6 major plot points (2 per act).
+    contents: `Divide the following story direction into a standard, pure 3-act structure (exactly 3 Acts total - Act I: Setup / Khởi đầu, Act II: Confrontation / Cao trào phát triển, Act III: Resolution / Giải quyết kết thúc).
     Story Direction: ${selectedBranch.title} - ${selectedBranch.description}
     Genre: ${genre}
     
-    CRITICAL: The dramatic beats, plot points and transitions must be fully customized to the nature of the selected genre "${genre}".
-    - If History/Religion: Act titles and plot points must match monumental historical battles, trials of faith, pilgrimages, historic milestones, or moral/philosophical testings.
+    CRITICAL: The dramatic beats, act titles, and act descriptions must be fully customized to the nature of the selected genre "${genre}".
+    - If History/Religion: Act titles and descriptions must match monumental historical battles, trials of faith, pilgrimages, historic milestones, or moral/philosophical testings.
     - If Comedy/Romance: Beats should follow comedic build-up, cute meet-ups, dramatic secrets, hilarious failures, and warm resolutions.
     - If Action/Fantasy: Act I hook, rising physical stakes, Act II climax/major fight, absolute low point, and epic final battle.
     - If Animation: Exaggerated magical inciting incidents, wondrous exploration, heartwarming climax with friendly lessons.
+    - If Drama: Build realistic emotional build-up, a powerful mid-point conflict, heavy moral options, and cathartic resolution.
     
-    IMPORTANT: Return all act titles, act descriptions, plot point titles, and plot point descriptions in Vietnamese (Tiếng Việt).
+    IMPORTANT: Provide deep and detailed descriptions for each Act (representing the entire narrative flow of that act) in Vietnamese (Tiếng Việt).
+    Do NOT split into nested plot points (set "plotPoints" to an empty array [] in the JSON output).
     Return in JSON format.`,
     config: {
       responseMimeType: "application/json",
@@ -107,8 +115,8 @@ export async function generateScriptStructure(genre: Genre, idea: string, select
         items: {
           type: Type.OBJECT,
           properties: {
-            title: { type: Type.STRING, description: "Act Title (e.g. Act I: Setup)" },
-            description: { type: Type.STRING },
+            title: { type: Type.STRING, description: "Act Title (e.g. Hồi I: Khởi đầu - Setup)" },
+            description: { type: Type.STRING, description: "Detailed description of everything that happens in this Act" },
             plotPoints: {
               type: Type.ARRAY,
               items: {
@@ -129,6 +137,91 @@ export async function generateScriptStructure(genre: Genre, idea: string, select
   });
 
   return JSON.parse(response.text);
+}
+
+export async function generateFullScreenplayDraft(
+  project: ProjectState
+): Promise<string> {
+  const selectedBranch = project.branches.find(b => b.id === project.selectedBranchId);
+  const branchTitle = selectedBranch?.title || 'Chưa chọn nhánh';
+  const branchDesc = selectedBranch?.description || '';
+
+  const charactersPrompt = project.characters && project.characters.length > 0
+    ? `\nDANH SÁCH NHÂN VẬT THIẾT LẬP:\n${project.characters.map(c => `- Tên: ${c.name} (${c.role}): ${c.description}`).join('\n')}\n`
+    : '';
+
+  const qaPrompt = project.questions && project.questions.length > 0
+    ? `\nKẾT QUẢ ĐỐI THOẠI LÀM RÕ Ý TƯỞNG (Clarification Q&As):\n${project.questions.map(q => {
+        const answer = project.answers[q.id];
+        return `- Câu hỏi: ${q.question}\n  -> Ý kiến của biên kịch đã chọn: "${answer || 'Không phản hồi'}"`;
+      }).join('\n')}\n`
+    : '';
+
+  const resourcePrompt = project.extraContext && project.extraContext.trim().length > 0
+    ? `\nTÀI LIỆU ĐÍNH KÈM / TƯ LIỆU SÁNG TÁC GỐC ĐẦU VÀO:\n"${project.extraContext.trim()}"\n`
+    : '';
+
+  const genreDetailsPrompt = `
+  THỂ LOẠI PHIM ĐÃ CHỌN: "${project.genre}".
+  Yêu cầu bộc lộ rõ ràng tinh thần của thể loại này:
+  - Nếu là Tôn giáo ("Religion"): Phải thể hiện không khí tâm linh, tâm lý mộ đạo đạo đức, không gian trang nghiêm cổ kính hoặc bối cảnh chùa chiền/nhà thờ/thánh đường thiêng liêng, lời thoại sâu sắc mang tính trăn trở về đức tin, ý chí tâm hồn hoặc bài học giác ngộ.
+  - Nếu là Lịch sử ("History"): Phải sử dụng ngôn từ bối cảnh xưa cổ, lịch sự hoặc mang phong thái xưng hô xa xưa hào hùng (ví dụ: khanh, trẫm, tiên sinh, lão nhân, tiểu bối hoặc xưng hô chuẩn truyền thống dân gian cố cựu), bối cảnh bộc lộ dấu ấn thời đại hào hùng hoặc cổ kính xưa cũ.
+  - Nếu là Hoạt hình ("Animation"): Hãy miêu tả các chuyển cảnh sinh động, giàu hình ảnh sáng tạo đột phá, nhân hoá đồ vật/con vật nếu cần, giọng điệu vui nhộn nhẹ nhàng kỳ ảo, bối cảnh lung linh nhiệm màu hoặc hài hước ngộ nghĩnh phù hợp gia đình trẻ nhỏ.
+  - Nếu là Hành động ("Action"): Tiết tấu dồn dập, căng thẳng kịch tính, thoại dứt khoát sắc bén, lồng ghép nhiều mô tả hành động rượt đuổi, thế võ nguy hiểm hoặc kịch chiến gay cấn nghẹt thở.
+  - Nếu là Hài hước ("Comedy"): Lời thoại dí dỏm sâu sắc, tạo tiếng cười tự nhiên, có những phản ứng tréo ngoe bất ngờ oái oăm của các nhân vật tạo tiếng cười.
+  - Nếu là Chính kịch ("Drama"): Đi sâu vào mâu thuẫn nhân sinh hoặc gia đình khốc liệt, nội tâm nhân vật giằng xé phức tạp, lời thoại mang tính bộc bạch nặng trĩu chiều sâu cảm xúc.
+  - Nếu là Lãng mạn ("Romance"): Từ ngữ lãng mạn nên thơ, bay bổng, các tương tác đầy chemistry ngọt ngào hay xao xuyến rạo rực tình cảm nam nữ.`;
+
+  const response = await ai.models.generateContent({
+    model: "gemini-3.5-flash",
+    contents: `Bạn là một nhà biên kịch phim điện ảnh đoạt giải Oscar bách chiến bách thắng. Hãy viết kịch bản hội thoại đầy đủ, LIÊN TỤC VÀ HOÀN CHỈNH TỪ ĐẦU ĐẾN CUỐI (không chia đoạn rải rác) cho bộ phim điện ảnh "${project.title}" thuộc thể loại "${project.genre}".
+
+BẮT BUỘC: Bạn phải lồng ghép, bám sát và phát triển đầy đủ tất cả tình tiết chi tiết nhất có thể dựa trên toàn bộ các tài nguyên, chuẩn bị thiết lập và hồ sơ đầu vào dưới đây:
+
+1. TÀI LIỆU ĐÍNH KÈM / TƯ LIỆU SÁNG TÁC GỐC ĐẦU VÀO:
+${resourcePrompt || "(Không có tài liệu đính kèm)"}
+
+2. Ý TƯỞNG CỐT TRUYỆN CHÍNH (BỔ SUNG TÀI NGUYÊN):
+"${project.initialIdea}"
+
+3. KẾT QUẢ ĐỒNG THUẬN TỪ BƯỚC KHẢO SÁT/LÀM RÕ:
+${qaPrompt || "(Không có thông tin làm rõ)"}
+
+4. HƯỚNG PHÁT TRIỂN NGHỆ THUẬT (STORY BRANCH / STORY DIRECTIONS):
+- Tiêu đề hướng đi: "${branchTitle}"
+- Mô tả chi tiết: "${branchDesc}"
+
+5. CẤU TRÚC 3 HỒI BẤT BIẾN (Do biên kịch tinh chỉnh):
+${project.acts.map((act, index) => `Hồi ${index + 1}: ${act.title}\nChi tiết diễn biến chính của Hồi: ${act.description}`).join('\n\n')}
+
+6. THIẾT LẬP NHÂN VẬT CHÍNH (CHARACTERS & PROFILES):
+${charactersPrompt || "(Không có thiết lập nhân vật cụ thể)"}
+
+Thời lượng phim ước lượng: ${project.duration} phút (Ước tính đối thoại tương đương khoảng ${(project.duration * 60) * 0.4} giây thoại thực tế).
+${genreDetailsPrompt}
+
+LƯU Ý ĐẶC BIỆT VỀ QUẦN CHÚNG & NHẤN MẠNH:
+- Bạn hoàn toàn có toàn quyền sáng tạo thêm các nhân vật phụ/nhân vật quần chúng (như cảnh sát, bồi bàn, tài xế, đám đông,...) phù hợp bối cảnh để dẫn dắt cốt truyện mượt mà.
+- Phải đảm bảo tất cả câu chuyện, mâu thuẫn và lời thoại được biểu đạt trọn vẹn, không viết tóm tắt kiểu "tiếp tục cảnh quay...", mà bắt buộc phải viết thoại và mô tả hành động đầy đủ 100% từ đầu tới kết thúc phim.
+
+YÊU CẦU ĐỊNH DẠNG (CỰC KỲ QUAN TRỌNG):
+1. Viết kịch bản bằng Tiếng Việt theo định dạng chuẩn kịch bản điện ảnh:
+   - Tách các phân cảnh bằng Tên Cảnh/Phân cảnh (SCENE HEADING) viết IN HOA (ví dụ: CẢNH 1: BÊN TRONG CĂN NHÀ - BAN ĐÊM)
+   - Mô tả hành động/bối cảnh (Action) viết bình thường.
+   - Tên nhân vật viết IN HOA ở giữa dòng trước khi nói.
+   - Lời thoại đối thoại của nhân vật được bọc hoàn toàn bởi dấu ngoặc vuông [...] và đính kèm ước lượng số giây nói thực tế ở cuối, ví dụ: [ Lời thoại của nhân vật (số_giây_nói_thực_tếs) ]
+
+Ý NGHĨA SỐ GIÂY TRONG NGOẶC VUÔNG:
+- Khi nhân vật nói thoại, hãy đính kèm thời lượng nói thực tế của câu thoại đó vào cuối dấu ngoặc vuông, ví dụ: [ Tôi sẽ không bao giờ để việc này xảy ra nữa! (4s) ].
+- Việc này giúp hệ thống tự động tính toán tổng thời lượng thoại của toàn bộ kịch bản một cách chính xác. Tốc độ nói trung bình là 2.3 từ mỗi giây (Ví dụ: 10 từ nói hết khoảng 4-5 giây).
+
+HÃY SÁNG TÁC KỊCH BẢN ĐẦY ĐỦ, LIÊN TỤC TỪ ĐẦU ĐẾN CUỐI. Hãy viết kịch bản thật sâu sắc, có hồn, dồi dào bối cảnh, và lột tả xuất sắc đỉnh cao nghệ thuật biên kịch.`,
+    config: {
+      temperature: 0.75,
+    }
+  });
+
+  return response.text;
 }
 
 export async function generateVietnameseSegmentDraft(
@@ -274,23 +367,31 @@ export async function syncTranslations(baseContent: string, fromLang: string): P
 export async function generateSuggestedCharacters(genre: Genre, idea: string, extraContext: string): Promise<Character[]> {
   const response = await ai.models.generateContent({
     model: "gemini-3.5-flash",
-    contents: `Dựa vào thể loại phim "${genre}", tóm tắt cốt truyện chính: "${idea}" và toàn bộ ngữ cảnh đi kèm: "${extraContext}", hãy đề xuất từ 2 đến 4 nhân vật chính & phụ quan trọng nhất cho bộ kịch bản này.
-    
-    YÊU CẦU ĐẶC BIỆT THEO THỂ LOẠI PHIM "${genre}":
-    Hãy thiết kế các nhân vật mang bản sắc sắc sảo, đúng tính chất của thể loại này:
-    - Nếu là Tôn giáo ("Religion"): Hãy gợi ý các nhân vật có sự đấu tranh mãnh liệt về đức tin, linh mục, tăng ni, tín đồ trung kiên hoặc kẻ mang hoài nghi tâm linh dằn vặt.
-    - Nếu là Lịch sử ("History"): Nhân vật phải phù hợp với bối cảnh lịch sử thời đại tương ứng (triều đình, chiến tướng, bá tánh khổ cực, các nhà hiền triết thời xưa).
-    - Nếu là Hoạt hình ("Animation"): Cho phép gợi ý các nhân vật đáng yêu, kỳ ảo, hoặc sinh vật biết nói, đồ vật nhân hóa ngộ nghĩnh mang các siêu năng lực ngây ngô.
-    - Nếu là Hành động ("Action"): Những nhân vật gai góc quyết đoán, sát thủ giấu mặt, cảnh sát mưu trí hoặc kẻ mang nợ máu nợ thù hành động dứt khoát.
-    - Nếu là Hài hước ("Comedy"): Nhân vật dí dỏm lập dị, hay gặp xui xẻo hoặc có thói quen ngớ ngẩn gây cười một cách đáng yêu.
-    - Nếu là Chính kịch ("Drama") / Lãng mạn ("Romance"): Những nhân vật có nội tâm sâu sắc, dễ tổn thương hoặc mang những u uất, khao khát tình cảm, giằng xé giữa các lựa chọn lý trí và trái tim.
+    contents: `Bạn là một chuyên gia phân tích kịch bản. Hãy đọc cực kỳ chi tiết hai tài liệu sau để trích xuất và đề xuất tất cả các nhân vật được nhắc tên hoặc mô phỏng xuất hiện trong đó:
 
-    Mỗi nhân vật đề xuất cần có:
-    - tên (name) viết IN HOA không dấu hoặc có dấu tiếng Việt (ví dụ: ÔNG TÁM, AN, QUỲNH)
-    - vai trò (role) viết ngắn gọn (ví dụ: Nhân vật chính, Nhân vật phản diện, Người đồng hành, Người mẹ, v.v.)
-    - mô tả tính cách & ngoại hình (description) bằng tiếng Việt cực kỳ súc tích.
+1. TÀI LIỆU ĐÍNH KÈM / GHI CHÚ THÔ:
+"${extraContext}"
 
-    Hãy trả về cấu trúc mảng JSON các đối tượng nhân vật.`,
+2. BỔ SUNG TÀI NGUYÊN (Ý TƯỞNG CỐT TRUYỆN CHÍNH):
+"${idea}"
+
+YÊU CẦU:
+- Phân tích thật kỹ lưỡng cả hai phần tài liệu trên để tìm ra có bao nhiêu nhân vật khác nhau được nhắc đến, dù là trực tiếp hay gián tiếp.
+- Trích lọc đầy đủ tên, vai trò và mô tả các nhân vật đó. Nếu số lượng nhân vật thực tế trong tài liệu quá ít (dưới 2 nhân vật), hãy sáng tạo thêm các nhân vật phụ/đối trọng/người đồng hành thích hợp cho Thể loại phim "${genre}" để kịch bản thêm phần sâu sắc và hoàn thiện.
+- Các thông tin nhân vật thu thập hoặc đề xuất thêm cần bộc lộ rõ tinh thần thể loại phim "${genre}".
+  + Nếu là Tôn giáo ("Religion"): Các nhân vật có đức tin sâu, dằn vặt nội tâm tâm linh.
+  + Nếu là Lịch sử ("History"): Nhân vật mang phong thái xưng hô hào hùng hoặc cổ kính, cổ xưa.
+  + Nếu là Hoạt hình ("Animation"): Đáng yêu, sinh động, hoặc kỳ ảo, nhân hóa nhân vật.
+  + Nếu là Hành động ("Action"): Cương nghị, dấn thân, hành động dứt khoát kịch tính.
+  + Nếu là Hài hước ("Comedy"): Lập dị dí dỏm, đầy tính tréo ngoe oái oăm tạo tiếng cười.
+  + Nếu là Chính kịch ("Drama") / Lãng mạn ("Romance"): Chiều sâu tâm lý, giàu cảm xúc, giằng xé nội tâm.
+
+Mỗi nhân vật trích lọc/đề xuất cần có một đối tượng gồm các trường sau:
+- tên (name): Viết IN HOA toàn bộ, có dấu tiếng Việt chuẩn xác (ví dụ: HÙNG, CHỊ BA, THẦY AN)
+- vai trò (role): Ghi rõ vai trò của nhân vật trong cốt truyện (ví dụ: Nhân vật chính, Nhân vật phản diện, Người đồng hành, Người hỗ trợ, v.v.)
+- mô tả tính cách & ngoại hình (description): Viết bằng tiếng Việt mô tả súc tích nhưng đầy chất điện ảnh về tính cách, mục đích sống, mâu thuẫn hoặc số phận nhân vật.
+
+Hãy trả về một định dạng cấu trúc mảng JSON các đối tượng nhân vật không kèm theo lời dẫn giải thích nào khác.`,
     config: {
       responseMimeType: "application/json",
       responseSchema: {
@@ -316,3 +417,30 @@ export async function generateSuggestedCharacters(genre: Genre, idea: string, ex
     description: c.description || ''
   }));
 }
+
+export async function enrichScriptIdea(genre: Genre, extraContext: string, currentIdea?: string): Promise<string> {
+  const response = await ai.models.generateContent({
+    model: "gemini-3.5-flash",
+    contents: `Bạn là một nhà biên kịch phim điện ảnh lão luyện bậc thầy. Hãy dựa trên các tài liệu đính kèm/ghi chú thô sau đây kết hợp với Thể loại phim "${genre}" để đề xuất một phần Tóm tắt cốt truyện sáng tạo đầy đủ kịch tính và bài bản nhất cho phim (gọi là "Bổ sung Tài nguyên kịch tính").
+
+TÀI LIỆU ĐÍNH KÈM / GHI CHÚ THÔ:
+"${extraContext}"
+
+${currentIdea ? `Ý TƯỞNG HIỆN TẠI (NẾU CÓ):\n"${currentIdea}"` : ""}
+
+YÊU CẦU:
+- Bổ sung các tình tiết đột phá, nút thắt kịch tính thích hợp cho thể loại cho phim "${genre}".
+- Phải liên kết chặt chẽ các thông tin thô từ tài liệu đính kèm thành một cốt truyện mạch lạc, cấu trúc kịch tính thu hút sự tò mò.
+- Đối thoại, mâu thuẫn chính diện và phản diện, hướng giải quyết cần đậm nét điện ảnh.
+- Hãy trình bày dưới dạng một câu chuyện tóm tắt cô đọng nhưng cực kỳ lôi cuốn, có đầy đủ khởi đầu, cao trào và hứa hẹn kết cục giàu cảm xúc (khoảng 150-300 từ).
+- Ngôn ngữ: Tiếng Việt (Tiếng Việt) dễ hiểu, lừng lẫy chất lượng phim điện ảnh của bạn.
+
+CHỈ TRẢ VỀ TOÀN VĂN PHẦN Ý TƯỞNG CỐT TRUYỆN ĐÃ ĐƯỢC BỔ SUNG, KHÔNG CÓ LỜI DẪN, KHÔNG CÓ KÝ TỰ ĐÁNH DẤU TIÊU ĐỀ NHA.`,
+    config: {
+      temperature: 0.8,
+    }
+  });
+
+  return response.text.trim();
+}
+

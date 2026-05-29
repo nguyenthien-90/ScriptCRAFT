@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { ProjectState, ScriptSegment } from '../types';
 import { Save, ArrowRight, ArrowLeft, Loader2, Sparkles } from 'lucide-react';
 import { saveProjectToStorage } from '../lib/storage';
-import { generateVietnameseSegmentDraft } from '../services/ai';
+import { generateFullScreenplayDraft } from '../services/ai';
 
 interface StepSaveProps {
   project: ProjectState;
@@ -17,32 +17,23 @@ export default function StepSave({ project, updateProject, onComplete, onPrev }:
 
   const handleStartWriting = async () => {
     setIsGenerating(true);
-    setStatusText('Đang khởi tạo cấu trúc phân đoạn kịch bản...');
+    setStatusText('Đang khởi động tiến trình biên kịch...');
     
     try {
-      const selectedBranch = project.branches.find(b => b.id === project.selectedBranchId);
-      const fullContext = `Idea: ${project.initialIdea}. Story Branch: ${selectedBranch?.title} - ${selectedBranch?.description}. Extra context: ${project.extraContext}`;
+      setStatusText(`Đang tự động sáng tác kịch bản hoàn chỉnh từ đầu đến cuối cho tác phẩm dài ${project.duration} phút...`);
       
-      const plotPointsList = project.acts.flatMap(act => act.plotPoints);
-      const targetSec = Math.ceil((project.duration * 60) / 6);
+      const contentVi = await generateFullScreenplayDraft(project);
       
-      setStatusText(`Đang tự động sáng tác kịch bản cho 6 phân đoạn (~${targetSec} giây mỗi phân đoạn)...`);
-      
-      // Build segments in parallel
-      const segmentPromises = plotPointsList.map(async (pp, index) => {
-        const segContext = `${fullContext}. Đây là phân đoạn thứ ${index + 1} có tiêu đề "${pp.title}" và mô tả cốt truyện diễn biến: "${pp.description}". Hãy sáng tác kịch bản hội thoại đầy đủ tiếng Việt cho phân đoạn này diễn tả đúng cốt truyện trên.`;
-        const contentVi = await generateVietnameseSegmentDraft(pp.title, segContext, targetSec, project.characters, project.genre);
-        return {
-          id: crypto.randomUUID(),
-          title: pp.title,
+      const segments: ScriptSegment[] = [
+        {
+          id: 'full-screenplay',
+          title: 'Kịch bản gốc (Toàn văn)',
           contentVi: contentVi,
           contentEn: '',
           contentZh: '',
-          plotPointId: pp.id
-        };
-      });
-      
-      const segments = await Promise.all(segmentPromises);
+          plotPointId: 'all'
+        }
+      ];
       
       const finalProject = { ...project, segments };
       saveProjectToStorage(finalProject);
@@ -115,7 +106,7 @@ export default function StepSave({ project, updateProject, onComplete, onPrev }:
         </div>
 
         <div className="p-6 bg-orange-500/10 rounded-2xl border border-orange-500/20 text-orange-500 text-sm leading-relaxed">
-          <strong>Lưu ý:</strong> Sau bước này, AI sẽ khởi tạo không gian viết với các phân đoạn đã được phân chia theo cấu trúc 3 hồi bạn vừa duyệt.
+          <strong>Lưu ý:</strong> Sau bước này, AI sẽ tự động biên soạn một bản thảo kịch bản hoàn chỉnh từ đầu đến cuối dựa trên tất cả tài liệu, nhân vật và cấu trúc 3 hồi bạn đã chuẩn bị!
         </div>
 
         <div className="flex gap-4">
